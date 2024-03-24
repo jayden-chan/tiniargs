@@ -1,0 +1,29 @@
+{
+  "name": "tiniargs",
+  "version": "0.1.0",
+  "license": "MIT",
+  "author": "Jayden Chan <jayden@jayden.codes> (https://jayden.codes)",
+  "description": "Zero dependency command line argument/flag parser",
+  "homepage": "https://github.com/jayden-chan/tiniargs#readme",
+  "private": false,
+  "keywords": [],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jayden-chan/tiniargs.git"
+  },
+  "main": "lib/index.js",
+  "files": [
+    "lib/index.js",
+    "lib/index.d.ts"
+  ],
+  "scripts": {
+    "test": "bun test --coverage",
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "20",
+    "bun-types": "latest",
+    "typescript": "^5.4.3"
+  }
+}

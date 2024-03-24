@@ -1,0 +1,13 @@
+{
+  "include": ["src/**/*.ts"],
+  "compilerOptions": {
+    "resolveJsonModule": true,
+    "outDir": "lib",
+    "module": "commonjs",
+    "lib": ["esnext"],
+    "target": "ES6",
+    "inlineSourceMap": true,
+    "declaration": true,
+    "strict": true
+  }
+}
