@@ -1,7 +1,11 @@
 import {
   DuplicateFlagError,
   FlagParseError,
+  FlagValue,
+  InvalidDefaultValueError,
+  MissingRequiredFlagError,
   SchemaValidationError,
+  TypeofFlagValue,
   UnknownFlagError,
   tiniargs,
 } from "./index";
@@ -77,6 +81,105 @@ test("schema duplicate flag (4)", () => {
   };
 
   expect(fn).toThrow(new DuplicateFlagError(`testflag`, "true", "true"));
+});
+
+test("schema required flag missing", () => {
+  const fn = () => {
+    tiniargs(
+      ["server"],
+      [{ long: "testflag", required: true, valueType: "boolean" }]
+    );
+  };
+
+  expect(fn).toThrow(new MissingRequiredFlagError("testflag"));
+});
+
+test("schema required flag present", () => {
+  const { positionals, flags } = tiniargs(
+    ["server", "--testflag=testing"],
+    [{ long: "testflag", required: true, valueType: "string" }]
+  );
+
+  expect(positionals).toStrictEqual(["server"]);
+  expect(flags).toStrictEqual({ testflag: "testing" });
+});
+
+test("schema required flag with default (1)", () => {
+  const { positionals, flags } = tiniargs(
+    ["server", "--testflag=testing"],
+    [
+      {
+        long: "testflag",
+        required: true,
+        defaultValue: "asdf",
+        valueType: "string",
+      },
+    ]
+  );
+
+  expect(positionals).toStrictEqual(["server"]);
+  expect(flags).toStrictEqual({ testflag: "testing" });
+});
+
+test("schema requred flag with default (2)", () => {
+  const fn = () => {
+    tiniargs(
+      ["server"],
+      [
+        {
+          long: "testflag",
+          required: true,
+          defaultValue: true,
+          valueType: "boolean",
+        },
+      ]
+    );
+  };
+
+  expect(fn).toThrow(new MissingRequiredFlagError("testflag"));
+});
+
+test("schema optional flag with default", () => {
+  const { positionals, flags } = tiniargs(
+    ["server"],
+    [
+      {
+        long: "testflag",
+        required: false,
+        defaultValue: "asdf",
+        valueType: "string",
+      },
+    ]
+  );
+
+  expect(positionals).toStrictEqual(["server"]);
+  expect(flags).toStrictEqual({ testflag: "asdf" });
+});
+
+test("schema invalid default value", () => {
+  const testCases: { defaultValue: FlagValue; valueType: TypeofFlagValue }[] = [
+    { defaultValue: true, valueType: "string" },
+    { defaultValue: true, valueType: "number" },
+
+    { defaultValue: "asdf", valueType: "boolean" },
+    { defaultValue: "asdf", valueType: "number" },
+
+    { defaultValue: 4334, valueType: "string" },
+    { defaultValue: 4334, valueType: "boolean" },
+  ];
+
+  for (const testCase of testCases) {
+    const fn = () =>
+      tiniargs(["server"], [{ long: "tt", required: true, ...testCase }]);
+
+    expect(fn).toThrow(
+      new InvalidDefaultValueError(
+        "tt",
+        testCase.valueType,
+        typeof testCase.defaultValue
+      )
+    );
+  }
 });
 
 test("schema simple string", () => {
@@ -209,6 +312,17 @@ test("schema unknown flag", () => {
     tiniargs(
       ["server", "--testflag", "--unknown"],
       [{ long: "testflag", short: "l", valueType: "boolean" }]
+    );
+  };
+
+  expect(fn).toThrow(UnknownFlagError);
+});
+
+test("schema optional short flag", () => {
+  const fn = () => {
+    tiniargs(
+      ["server", "--testflag", "-l"],
+      [{ long: "testflag", valueType: "boolean" }]
     );
   };
 

@@ -1,16 +1,20 @@
 export type FlagValue = string | boolean | number;
+export type TypeofFlagValue = "string" | "boolean" | "number";
 export type LongFlag = string;
 export type ShortFlag = string;
 
-export type ParsedArgs = {
+export type FlagsRecord = Record<string, FlagValue>;
+export type ParsedArgs<T extends FlagsRecord> = {
   positionals: string[];
-  flags: Record<LongFlag, FlagValue>;
+  flags: T;
 };
 
 export type FlagSchema = {
   long: LongFlag;
-  short: ShortFlag;
-  valueType: "string" | "boolean" | "number";
+  short?: ShortFlag;
+  required?: boolean;
+  defaultValue?: FlagValue;
+  valueType: TypeofFlagValue;
 };
 
 export class UnknownFlagError extends Error {
@@ -49,7 +53,36 @@ export class SchemaValidationError extends Error {
   }
 }
 
-export function tiniargs(args: string[], schema?: FlagSchema[]): ParsedArgs {
+export class MissingRequiredFlagError extends Error {
+  public readonly key: string;
+  constructor(key: string) {
+    super(`Flag "${key}" is required but was not provided`);
+    this.key = key;
+  }
+}
+
+export class InvalidDefaultValueError extends Error {
+  public readonly key: string;
+  public readonly valueType: TypeofFlagValue;
+  public readonly defaultValueType: string;
+  constructor(
+    key: string,
+    valueType: TypeofFlagValue,
+    defaultValueType: string
+  ) {
+    super(
+      `Default value for flag "${key}" is invalid: expected "${valueType}" but got "${defaultValueType}"`
+    );
+    this.key = key;
+    this.valueType = valueType;
+    this.defaultValueType = defaultValueType;
+  }
+}
+
+export function tiniargs<T extends FlagsRecord = FlagsRecord>(
+  args: string[],
+  schema?: FlagSchema[]
+): ParsedArgs<T> {
   const positionals = args.filter((a) => !a.startsWith("-"));
 
   const flagParseFn =
@@ -62,7 +95,7 @@ export function tiniargs(args: string[], schema?: FlagSchema[]): ParsedArgs {
     .flat()
     .filter((f): f is [LongFlag, FlagValue] => f !== undefined);
 
-  const flags: Record<LongFlag, FlagValue> = {};
+  const flags: FlagsRecord = {};
   parsedFlags.forEach(([key, val]) => {
     if (flags[key] === undefined) {
       flags[key] = val;
@@ -71,7 +104,25 @@ export function tiniargs(args: string[], schema?: FlagSchema[]): ParsedArgs {
     }
   });
 
-  return { positionals, flags };
+  if (schema !== undefined) {
+    schema
+      .filter((s) => s.required === true)
+      .forEach((s) => {
+        if (flags[s.long] === undefined) {
+          throw new MissingRequiredFlagError(s.long);
+        }
+      });
+
+    schema
+      .filter((s) => s.required === false && s.defaultValue !== undefined)
+      .forEach((s) => {
+        if (flags[s.long] === undefined) {
+          flags[s.long] = s.defaultValue!;
+        }
+      });
+  }
+
+  return { positionals, flags: flags as T };
 }
 
 const FLAG_REGEX = /--?(\w+)(?:=(.*))?/;
@@ -174,7 +225,7 @@ const validateSchema = (schemas: FlagSchema[]): FlagSchema[] => {
   const shortFlags = new Set<ShortFlag>();
 
   schemas.forEach((s) => {
-    const { long, short, valueType } = s;
+    const { long, short, defaultValue, valueType } = s;
 
     if (long.length <= 1) {
       throw new SchemaValidationError(
@@ -186,14 +237,18 @@ const validateSchema = (schemas: FlagSchema[]): FlagSchema[] => {
       throw new SchemaValidationError(`Duplicate long flag "${long}"`);
     }
 
-    if (short.length !== 1) {
+    if (short !== undefined && short.length !== 1) {
       throw new SchemaValidationError(
         `Invalid flag "${long}": short flag must be exactly 1 character`
       );
     }
 
-    if (shortFlags.has(short)) {
+    if (short !== undefined && shortFlags.has(short)) {
       throw new SchemaValidationError(`Duplicate short flag "${short}"`);
+    }
+
+    if (defaultValue !== undefined && typeof defaultValue !== valueType) {
+      throw new InvalidDefaultValueError(long, valueType, typeof defaultValue);
     }
 
     if (!["string", "number", "boolean"].includes(valueType)) {
@@ -203,7 +258,10 @@ const validateSchema = (schemas: FlagSchema[]): FlagSchema[] => {
     }
 
     longFlags.add(long);
-    shortFlags.add(short);
+
+    if (short !== undefined) {
+      shortFlags.add(short);
+    }
   });
 
   return schemas;
