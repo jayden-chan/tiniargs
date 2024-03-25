@@ -114,7 +114,7 @@ export function tiniargs<T extends FlagsRecord = FlagsRecord>(
       });
 
     schema
-      .filter((s) => s.required === false && s.defaultValue !== undefined)
+      .filter((s) => !s.required && s.defaultValue !== undefined)
       .forEach((s) => {
         if (flags[s.long] === undefined) {
           flags[s.long] = s.defaultValue!;
