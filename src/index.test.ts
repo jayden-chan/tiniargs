@@ -139,7 +139,7 @@ test("schema requred flag with default (2)", () => {
   expect(fn).toThrow(new MissingRequiredFlagError("testflag"));
 });
 
-test("schema optional flag with default", () => {
+test("schema optional flag with default (required: false)", () => {
   const { positionals, flags } = tiniargs(
     ["server"],
     [
@@ -150,6 +150,16 @@ test("schema optional flag with default", () => {
         valueType: "string",
       },
     ]
+  );
+
+  expect(positionals).toStrictEqual(["server"]);
+  expect(flags).toStrictEqual({ testflag: "asdf" });
+});
+
+test("schema optional flag with default (required: undefined)", () => {
+  const { positionals, flags } = tiniargs(
+    ["server"],
+    [{ long: "testflag", defaultValue: "asdf", valueType: "string" }]
   );
 
   expect(positionals).toStrictEqual(["server"]);
